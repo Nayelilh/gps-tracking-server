@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Tracking - Monitor de Dispositivos</title>
+    
+    <!-- Leaflet CSS para mapas -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <style>
+        /* ===== ESTILOS CSS ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            position: relative;
+        }
+
+        .header h1 {
+            color: #4a5568;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 25px;
+            align-items: center;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .stat-item i {
+            color: #667eea;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #48bb78;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(72, 187, 120, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); }
+        }
+
+        /* Layout principal */
+        .main-container {
+            display: flex;
+            height: calc(100vh - 80px);
+        }
+
+        /* Panel lateral */
+        .sidebar {
+            width: 350px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .sidebar-header h2 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .device-count {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .devices-list {
+            padding: 15px;
+        }
+
+        .device-item {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .device-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .device-item.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .device-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .device-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .device-id {
+            font-size: 12px;
+            opacity: 0.7;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .device-info {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .device-location {
+            margin: 5px 0;
+        }
+
+        .device-time {
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .device-accuracy {
+            display: inline-block;
+            background: rgba(72, 187, 120, 0.2);
+            color: #38a169;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+
+        /* Mapa */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Controles del mapa */
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            color: #4a5568;
+            font-size: 16px;
+            min-width: 45px;
+        }
+
+        .control-btn:hover {
+            background: white;
+            transform: scale(1.05);
+        }
+
+        .control-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        /* Loading */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 1001;
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Mensajes de estado */
+        .status-message {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px 20px;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none;
+            font-size: 14px;
+            color: #4a5568;
+        }
+
+        /* Toggle sidebar para móviles */
+        .toggle-sidebar {
+            display: none;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 10px 15px;
+            }
+            
+            .header h1 {
+                font-size: 20px;
+            }
+            
+            .header-stats {
+                gap: 15px;
+            }
+            
+            .stat-item {
+                font-size: 12px;
+            }
+
+            .sidebar {
+                position: absolute;
+                left: 0;
+                top: 0;
+                height: 100%;
+                z-index: 1002;
+                transform: translateX(-100%);
+                width: 300px;
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .toggle-sidebar {
+                display: block;
+            }
+        }
+
+        /* Estilos para popups del mapa */
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .device-popup {
+            min-width: 200px;
+        }
+
+        .popup-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: -12px -20px 10px;
+            padding: 10px 20px;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .popup-info {
+            font-size: 12px;
+            line-height: 1.4;
+            color: #4a5568;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1><i class="fas fa-map-marker-alt"></i> GPS Tracking Monitor</h1>
+        <div class="header-stats">
+            <div class="stat-item">
+                <i class="fas fa-mobile-alt"></i>
+                <span id="device-count">0</span> Dispositivos
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-clock"></i>
+                <span id="last-update">--:--</span>
+            </div>
+            <div class="stat-item">
+                <div class="status-indicator"></div>
+                <span id="connection-status">Conectado</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor principal -->
+    <div class="main-container">
+        <!-- Toggle sidebar para móviles -->
+        <button class="toggle-sidebar" onclick="toggleSidebar()">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- Panel lateral -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-list"></i> Dispositivos Activos</h2>
+                <div class="device-count">
+                    <span id="sidebar-device-count">0</span> dispositivos encontrados
+                </div>
+            </div>
+            <div class="devices-list" id="devices-list">
+                <!-- Los dispositivos se cargarán aquí dinámicamente -->
+            </div>
+        </div>
+
+        <!-- Contenedor del mapa -->
+        <div class="map-container">
+            <div id="map"></div>
+            
+            <!-- Controles del mapa -->
+            <div class="map-controls">
+                <button class="control-btn" onclick="centerMap()" title="Centrar Mapa">
+                    <i class="fas fa-crosshairs"></i>
+                </button>
+                <button class="control-btn" id="auto-refresh-btn" onclick="toggleAutoRefresh()" title="Auto-actualizar">
+                    <i class="fas fa-sync"></i>
+                </button>
+                <button class="control-btn" onclick="refreshData()" title="Actualizar Ahora">
+                    <i class="fas fa-refresh"></i>
+                </button>
+                <button class="control-btn" onclick="showAllDevices()" title="Mostrar Todos">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading indicator -->
+    <div class="loading" id="loading">
+        <div class="loading-spinner"></div>
+        <div>Cargando datos...</div>
+    </div>
+
+    <!-- Mensaje de estado -->
+    <div class="status-message" id="status-message"></div>
+
+    <!-- Scripts -->
+    <!-- Leaflet JS para mapas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    
+    <script>
+        // ===== CONFIGURACIÓN GLOBAL =====
+        const CONFIG = {
+            // Cambiar por tu URL real de AWS
+            API_BASE_URL: 'https://tu-servidor-aws.com/api',
+            // API_BASE_URL: 'http://localhost:3000/api', // Para desarrollo local
+            REFRESH_INTERVAL: 10000, // 10 segundos
+            MAP_CENTER: [-13.5319, -71.9675], // Cusco, Perú (tu ubicación)
+            MAP_ZOOM: 13,
+            DEVICE_COLORS: [
+                '#e53e3e', '#3182ce', '#38a169', '#d69e2e', '#805ad5',
+                '#dd6b20', '#319795', '#e53e3e', '#2b6cb0', '#48bb78'
+            ]
+        };
+
+        // ===== VARIABLES GLOBALES =====
+        let map;
+        let deviceMarkers = new Map();
+        let devicePaths = new Map();
+        let devices = [];
+        let selectedDevice = null;
+        let autoRefreshInterval = null;
+        let isAutoRefresh = false;
+
+        // ===== INICIALIZACIÓN =====
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+            loadDevices();
+            setupAutoRefresh();
+            
+            // Actualizar hora cada segundo
+            setInterval(updateCurrentTime, 1000);
+            
+            console.log('GPS Tracking Monitor inicializado');
+        });
+
+        // ===== FUNCIONES DEL MAPA =====
+        
+        /**
+         * Inicializa el mapa con Leaflet
+         */
+        function initializeMap() {
+            try {
+                map = L.map('map').setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
+                
+                // Agregar capa base de OpenStreetMap
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(map);
+                
+                // Agregar controles de escala
+                L.control.scale().addTo(map);
+                
+                console.log('Mapa inicializado correctamente');
+            } catch (error) {
+                console.error('Error inicializando mapa:', error);
+                showStatusMessage('Error inicializando el mapa', 'error');
+            }
+        }
+
+        /**
+         * Centra el mapa en todos los dispositivos visibles
+         */
+        function centerMap() {
+            if (devices.length === 0) {
+                map.setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
+                return;
+            }
+            
+            const bounds = [];
+            devices.forEach(device => {
+                if (device.lastLocation) {
+                    bounds.push([device.lastLocation.latitude, device.lastLocation.longitude]);
+                }
+            });
+            
+            if (bounds.length > 0) {
+                const group = new L.featureGroup(bounds.map(coord => L.marker(coord)));
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        /**
+         * Muestra todos los dispositivos en el mapa
+         */
+        function showAllDevices() {
+            deviceMarkers.forEach(marker => {
+                marker.addTo(map);
+            });
+            centerMap();
+            selectedDevice = null;
+            updateDevicesList();
+        }
+
+        // ===== FUNCIONES DE DATOS =====
+
+        /**
+         * Carga los dispositivos desde la API
+         */
+        async function loadDevices() {
+            showLoading(true);
+            
+            try {
+                const response = await fetch(`${CONFIG.API_BASE_URL}/devices`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    devices = data.devices;
+                    updateDevicesOnMap();
+                    updateDevicesList();
+                    updateStats();
+                    showStatusMessage(`${devices.length} dispositivos cargados`, 'success');
+                } else {
+                    throw new Error(data.message || 'Error desconocido');
+                }
+                
+            } catch (error) {
+                console.error('Error cargando dispositivos:', error);
+                showStatusMessage('Error conectando con el servidor', 'error');
+                updateConnectionStatus(false);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        /**
+         * Actualiza los marcadores de dispositivos en el mapa
+         */
+        function updateDevicesOnMap() {
+            // Limpiar marcadores existentes
+            deviceMarkers.forEach(marker => {
+                map.removeLayer(marker);
+            });
+            deviceMarkers.clear();
+
+            // Crear marcadores para cada dispositivo
+            devices.forEach((device, index) => {
+                if (!device.lastLocation) return;
+
+                const { latitude, longitude } = device.lastLocation;
+                const color = CONFIG.DEVICE_COLORS[index % CONFIG.DEVICE_COLORS.length];
+                
+                // Crear icono personalizado
+                const icon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div style="
+                        background-color: ${color};
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 50%;
+                        border: 3px solid white;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: white;
+                        font-size: 10px;
+                        font-weight: bold;
+                    "><i class="fas fa-mobile-alt"></i></div>`,
+                    iconSize: [26, 26],
+                    iconAnchor: [13, 13]
+                });
+
+                // Crear marcador
+                const marker = L.marker([latitude, longitude], { icon })
+                    .bindPopup(createDevicePopup(device))
+                    .addTo(map);
+
+                // Agregar evento de click
+                marker.on('click', () => {
+                    selectDevice(device.deviceId);
+                });
+
+                deviceMarkers.set(device.deviceId, marker);
+            });
+
+            updateConnectionStatus(true);
+        }
+
+        /**
+         * Crea el contenido del popup para un dispositivo
+         */
+        function createDevicePopup(device) {
+            const location = device.lastLocation;
+            const timeAgo = getTimeAgo(location.timestamp);
+            const accuracy = location.accuracy ? `±${location.accuracy.toFixed(1)}m` : 'N/A';
+
+            return `
+                <div class="device-popup">
+                    <div class="popup-header">
+                        <strong><i class="fas fa-mobile-alt"></i> ${device.deviceName}</strong>
+                    </div>
+                    <div class="popup-info">
+                        <div><strong>ID:</strong> ${device.deviceId}</div>
+                        <div><strong>Coordenadas:</strong><br>
+                             ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}</div>
+                        <div><strong>Precisión:</strong> ${accuracy}</div>
+                        <div><strong>Última actualización:</strong><br>${timeAgo}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * Actualiza la lista de dispositivos en el sidebar
+         */
+        function updateDevicesList() {
+            const devicesList = document.getElementById('devices-list');
+            
+            if (devices.length === 0) {
+                devicesList.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #666;">
+                        <i class="fas fa-search" style="font-size: 24px; margin-bottom: 10px; display: block;"></i>
+                        No se encontraron dispositivos activos
+                    </div>
+                `;
+                return;
+            }
+
+            devicesList.innerHTML = devices.map(device => {
+                const isSelected = selectedDevice === device.deviceId;
+                const location = device.lastLocation;
+                const timeAgo = getTimeAgo(location.timestamp);
+                const accuracy = location.accuracy ? location.accuracy.toFixed(1) : 'N/A';
+
+                return `
+                    <div class="device-item ${isSelected ? 'selected' : ''}" 
+                         onclick="selectDevice('${device.deviceId}')">
+                        <div class="device-header">
+                            <div class="device-name">
+                                <i class="fas fa-mobile-alt"></i> ${device.deviceName}
+                            </div>
+                            <div class="device-id">${device.deviceId}</div>
+                        </div>
+                        <div class="device-info">
+                            <div class="device-location">
+                                <i class="fas fa-map-marker-alt"></i>
+                                ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}
+                            </div>
+                            <div class="device-time">
+                                <i class="fas fa-clock"></i> ${timeAgo}
+                            </div>
+                            <div class="device-accuracy">
+                                <i class="fas fa-crosshairs"></i> ±${accuracy}m
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /**
+         * Selecciona un dispositivo específico
+         */
+        function selectDevice(deviceId) {
+            selectedDevice = deviceId;
+            
+            // Encontrar el dispositivo
+            const device = devices.find(d => d.deviceId === deviceId);
+            if (!device || !device.lastLocation) return;
+
+            // Centrar mapa en el dispositivo
+            const { latitude, longitude } = device.lastLocation;
+            map.setView([latitude, longitude], 16);
+
+            // Abrir popup del marcador
+            const marker = deviceMarkers.get(deviceId);
+            if (marker) {
+                marker.openPopup();
+            }
+
+            // Actualizar lista visual
+            updateDevicesList();
+
+            // Cargar historial del dispositivo (opcional)
+            loadDeviceHistory(deviceId);
+        }
+
+        /**
+         * Carga el historial de ubicaciones de un dispositivo
+         */
+        async function loadDeviceHistory(deviceId, hours = 24) {
+            try {
+                const endTime = Date.now();
+                const startTime = endTime - (hours * 60 * 60 * 1000);
+                
+                const response = await fetch(
+                    `${CONFIG.API_BASE_URL}/locations?deviceId=${deviceId}&startTime=${startTime}&endTime=${endTime}&limit=100`
+                );
+                
+                if (!response.ok) throw new Error('Error cargando historial');
+                
+                const data = await response.json();
+                
+                if (data.success && data.locations.length > 1) {
+                    drawDevicePath(deviceId, data.locations);
+                }
+                
+            } catch (error) {
+                console.error('Error cargando historial:', error);
+            }
+        }
+
+        /**
+         * Dibuja la ruta de un dispositivo en el mapa
+         */
+        function drawDevicePath(deviceId, locations) {
+            // Remover ruta anterior si existe
+            if (devicePaths.has(deviceId)) {
+                map.removeLayer(devicePaths.get(deviceId));
+            }
+
+            if (locations.length < 2) return;
+
+            // Crear coordenadas para la polyline
+            const coordinates = locations.map(loc => [loc.latitude, loc.longitude]);
+            
+            // Obtener color del dispositivo
+            const deviceIndex = devices.findIndex(d => d.deviceId === deviceId);
+            const color = CONFIG.DEVICE_COLORS[deviceIndex % CONFIG.DEVICE_COLORS.length];
+
+            // Crear polyline
+            const path = L.polyline(coordinates, {
+                color: color,
+                weight: 3,
+                opacity: 0.7,
+                dashArray: '5, 5'
+            }).addTo(map);
+
+            devicePaths.set(deviceId, path);
+
+            // Mostrar información de la ruta
+            showStatusMessage(`Ruta cargada: ${locations.length} puntos`, 'info');
+        }
+
+        // ===== FUNCIONES DE INTERFAZ =====
+
+        /**
+         * Actualiza las estadísticas en el header
+         */
+        function updateStats() {
+            document.getElementById('device-count').textContent = devices.length;
+            document.getElementById('sidebar-device-count').textContent = devices.length;
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+        }
+
+        /**
+         * Actualiza el estado de conexión
+         */
+        function updateConnectionStatus(isConnected) {
+            const statusElement = document.getElementById('connection-status');
+            const indicator = document.querySelector('.status-indicator');
+            
+            if (isConnected) {
+                statusElement.textContent = 'Conectado';
+                indicator.style.background = '#48bb78';
+            } else {
+                statusElement.textContent = 'Desconectado';
+                indicator.style.background = '#e53e3e';
+            }
+        }
+
+        /**
+         * Muestra/oculta el indicador de carga
+         */
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            loading.style.display = show ? 'block' : 'none';
+        }
+
+        /**
+         * Muestra un mensaje de estado temporal
+         */
+        function showStatusMessage(message, type = 'info', duration = 3000) {
+            const statusMessage = document.getElementById('status-message');
+            
+            // Configurar estilo según el tipo
+            let color, bgColor;
+            switch (type) {
+                case 'success':
+                    color = '#38a169';
+                    bgColor = 'rgba(72, 187, 120, 0.1)';
+                    break;
+                case 'error':
+                    color = '#e53e3e';
+                    bgColor = 'rgba(229, 62, 62, 0.1)';
+                    break;
+                case 'warning':
+                    color = '#d69e2e';
+                    bgColor = 'rgba(214, 158, 46, 0.1)';
+                    break;
+                default:
+                    color = '#3182ce';
+                    bgColor = 'rgba(49, 130, 206, 0.1)';
+            }
+            
+            statusMessage.style.color = color;
+            statusMessage.style.backgroundColor = bgColor;
+            statusMessage.textContent = message;
+            statusMessage.style.display = 'block';
+            
+            // Ocultar después del tiempo especificado
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, duration);
+        }
+
+        /**
+         * Actualiza la hora actual en el header
+         */
+        function updateCurrentTime() {
+            // Solo actualizar si no estamos mostrando la última actualización
+            if (!document.getElementById('last-update').textContent.includes(':')) {
+                document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+            }
+        }
+
+        /**
+         * Toggle del sidebar para móviles
+         */
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('open');
+        }
+
+        // ===== FUNCIONES DE AUTO-REFRESH =====
+
+        /**
+         * Configura la actualización automática
+         */
+        function setupAutoRefresh() {
+            isAutoRefresh = true;
+            document.getElementById('auto-refresh-btn').classList.add('active');
+            
+            autoRefreshInterval = setInterval(() => {
+                if (isAutoRefresh) {
+                    loadDevices();
+                }
+            }, CONFIG.REFRESH_INTERVAL);
+        }
+
+        /**
+         * Toggle de la actualización automática
+         */
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('auto-refresh-btn');
+            
+            if (isAutoRefresh) {
+                // Desactivar
+                clearInterval(autoRefreshInterval);
+                isAutoRefresh = false;
+                btn.classList.remove('active');
+                showStatusMessage('Auto-actualización desactivada', 'info');
+            } else {
+                // Activar
+                setupAutoRefresh();
+                showStatusMessage('Auto-actualización activada', 'success');
+            }
+        }
+
+        /**
+         * Actualiza los datos manualmente
+         */
+        function refreshData() {
+            loadDevices();
+        }
+
+        // ===== FUNCIONES AUXILIARES =====
+
+        /**
+         * Calcula el tiempo transcurrido desde un timestamp
+         */
+        function getTimeAgo(timestamp) {
+            const now = Date.now();
+            const diff = now - timestamp;
+            
+            const minutes = Math.floor(diff / (1000 * 60));
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            if (minutes < 1) return 'Ahora mismo';
+            if (minutes < 60) return `${minutes} min`;
+            if (hours < 24) return `${hours}h ${minutes % 60}min`;
+            return `${days}d ${hours % 24}h`;
+        }
+
+        /**
+         * Formatea una fecha para mostrar
+         */
+        function formatDateTime(timestamp) {
+            return new Date(timestamp).toLocaleString('es-ES', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        // ===== MANEJO DE ERRORES GLOBALES =====
+        window.addEventListener('error', function(e) {
+            console.error('Error global:', e.error);
+            showStatusMessage('Se produjo un error inesperado', 'error');
+        });
+
+        // ===== EVENTOS DEL TECLADO =====
+        document.addEventListener('keydown', function(e) {
+            switch(e.key) {
+                case 'r':
+                case 'R':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        refreshData();
+                    }
+                    break;
+                case 'c':
+                case 'C':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        centerMap();
+                    }
+                    break;
+                case 'Escape':
+                    selectedDevice = null;
+                    updateDevicesList();
+                    break;
+            }
+        });
+
+        // ===== LOG DE INICIO =====
+        console.log(`
+╔════════════════════════════════════════════════════════════════╗
+║                    GPS TRACKING FRONTEND                       ║
+╠════════════════════════════════════════════════════════════════╣
+║  API URL: ${CONFIG.API_BASE_URL.padEnd(50)} ║
+║  Actualización: ${(CONFIG.REFRESH_INTERVAL/1000).toString().padEnd(47)} segundos ║
+║  Centro del mapa: ${CONFIG.MAP_CENTER.join(', ').padEnd(44)} ║
+╚════════════════════════════════════════════════════════════════╝
+        `);
+        
+        console.log('Controles disponibles:');
+        console.log('  Ctrl+R: Actualizar datos');
+        console.log('  Ctrl+C: Centrar mapa');
+        console.log('  Escape: Deseleccionar dispositivo');
+        console.log('');
+    </script>
+</body>
+</html>

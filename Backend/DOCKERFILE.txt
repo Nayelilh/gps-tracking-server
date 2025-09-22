@@ -1,0 +1,26 @@
+FROM node:18-alpine
+
+# Crear directorio de trabajo
+WORKDIR /app
+
+# Copiar package files
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm ci --only=production
+
+# Copiar código fuente
+COPY . .
+
+# Crear usuario no-root
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# Cambiar a usuario no-root
+USER nodejs
+
+# Exponer puerto
+EXPOSE 3000
+
+# Comando de inicio
+CMD ["node", "server.js"]
