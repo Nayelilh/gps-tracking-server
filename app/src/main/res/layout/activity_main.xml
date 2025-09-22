@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="GPS Tracker"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="20dp" />
+
+    <TextView
+        android:id="@+id/txtDeviceId"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Device ID: "
+        android:textSize="14sp"
+        android:layout_marginBottom="10dp" />
+
+    <TextView
+        android:id="@+id/txtStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Estado"
+        android:textSize="16sp"
+        android:layout_marginBottom="20dp"
+        android:background="#f0f0f0"
+        android:padding="10dp" />
+
+    <TextView
+        android:id="@+id/txtCoordinates"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Coordenadas"
+        android:textSize="14sp"
+        android:layout_marginBottom="30dp"
+        android:background="#f8f8f8"
+        android:padding="15dp"
+        android:minHeight="100dp" />
+
+    <Button
+        android:id="@+id/btnStartStop"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:text="INICIAR TRACKING"
+        android:textSize="16sp"
+        android:backgroundTint="#4CAF50" />
+
+</LinearLayout>
